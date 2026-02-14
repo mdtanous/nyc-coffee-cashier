@@ -19,9 +19,18 @@ export default function useVoiceRecorder(): UseVoiceRecorderReturn {
     try {
       setError(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
+
+      // Check which mimeType is supported
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "";
+
+      const options: MediaRecorderOptions = {};
+      if (mimeType) options.mimeType = mimeType;
+
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
 
@@ -31,11 +40,14 @@ export default function useVoiceRecorder(): UseVoiceRecorderReturn {
         }
       };
 
-      mediaRecorder.start();
+      // Record in 250ms chunks for reliability
+      mediaRecorder.start(250);
       setIsRecording(true);
     } catch (err) {
       if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setError("Microphone access denied. Please enable it in your browser settings.");
+        setError(
+          "Microphone access denied. Please enable it in your browser settings."
+        );
       } else {
         setError("Could not access microphone.");
       }
@@ -46,17 +58,31 @@ export default function useVoiceRecorder(): UseVoiceRecorderReturn {
     return new Promise((resolve) => {
       const mediaRecorder = mediaRecorderRef.current;
       if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        setIsRecording(false);
         resolve("");
         return;
       }
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
-
-        // Stop all tracks
+        // Stop all tracks to release the microphone
         mediaRecorder.stream.getTracks().forEach((track) => track.stop());
-
         setIsRecording(false);
+
+        if (chunksRef.current.length === 0) {
+          setError("No audio was captured. Please try again.");
+          resolve("");
+          return;
+        }
+
+        const audioBlob = new Blob(chunksRef.current, {
+          type: mediaRecorder.mimeType || "audio/webm",
+        });
+
+        if (audioBlob.size < 100) {
+          setError("Recording was too short. Please try again.");
+          resolve("");
+          return;
+        }
 
         // Send to our STT API route
         try {
@@ -69,12 +95,25 @@ export default function useVoiceRecorder(): UseVoiceRecorderReturn {
           });
 
           if (!response.ok) {
-            throw new Error("STT request failed");
+            const errData = await response.json().catch(() => ({}));
+            console.error("STT response error:", errData);
+            throw new Error(errData.error || "STT request failed");
           }
 
           const data = await response.json();
-          resolve(data.text || "");
-        } catch {
+          const text = data.text?.trim() || "";
+
+          if (!text) {
+            setError(
+              "I didn't catch that. Please speak clearly and try again."
+            );
+            resolve("");
+            return;
+          }
+
+          resolve(text);
+        } catch (err) {
+          console.error("STT fetch error:", err);
           setError("Could not transcribe audio. Please try again.");
           resolve("");
         }
