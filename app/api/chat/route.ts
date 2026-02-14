@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai } from "@/lib/openai";
+import { getOpenAI } from "@/lib/openai";
 import { SYSTEM_PROMPT, ORDER_FUNCTION } from "@/lib/prompts";
 import { calculateItemPrice, calculateOrderTotal } from "@/lib/price-calculator";
 import { getSupabase } from "@/lib/supabase";
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     const { messages } = await req.json();
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
       functions: [ORDER_FUNCTION],
