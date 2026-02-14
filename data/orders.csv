@@ -1,0 +1,16 @@
+order_id,order_number,status,total_price,created_at,completed_at,item_name,size,temperature,milk_type,sweetness,ice_level,extra_shots,syrups,item_price,modifiers_price,notes
+ord_001,1,completed,5.50,2025-02-13T08:15:00Z,2025-02-13T08:20:00Z,Iced Latte,large,iced,oat,normal,normal,0,[],5.00,0.50,
+ord_002,2,completed,7.50,2025-02-13T08:22:00Z,2025-02-13T08:28:00Z,Hot Americano,small,hot,none,no_sugar,n/a,1,[],3.00,1.50,
+ord_002,2,completed,7.50,2025-02-13T08:22:00Z,2025-02-13T08:28:00Z,Plain Croissant,small,n/a,none,n/a,n/a,0,[],3.50,0.00,
+ord_003,3,completed,6.00,2025-02-13T09:01:00Z,2025-02-13T09:07:00Z,Coffee Frappuccino,large,iced,whole,extra_sugar,extra_ice,0,[],6.00,0.00,
+ord_004,4,completed,5.75,2025-02-13T09:15:00Z,2025-02-13T09:22:00Z,Mocha,small,hot,almond,less_sugar,n/a,0,[],4.50,0.75,Almond milk substitution
+ord_005,5,completed,8.25,2025-02-13T09:30:00Z,2025-02-13T09:38:00Z,Matcha Latte,large,iced,oat,normal,less_ice,1,"[{""name"":""Caramel Syrup"",""pumps"":2}]",5.25,2.50,Extra matcha shot + oat milk + caramel
+ord_006,6,completed,3.00,2025-02-13T10:05:00Z,2025-02-13T10:08:00Z,Black Tea,small,hot,none,normal,n/a,0,[],3.00,0.00,
+ord_007,7,completed,10.00,2025-02-13T10:20:00Z,2025-02-13T10:30:00Z,Latte,large,hot,whole,normal,n/a,2,"[{""name"":""Hazelnut Syrup"",""pumps"":1}]",5.00,3.50,Two extra shots + hazelnut
+ord_007,7,completed,10.00,2025-02-13T10:20:00Z,2025-02-13T10:30:00Z,Chocolate Chip Cookie,small,n/a,none,n/a,n/a,0,[],2.50,0.00,
+ord_008,8,completed,4.25,2025-02-13T10:45:00Z,2025-02-13T10:50:00Z,Lemon Green Tea,large,iced,none,less_sugar,normal,0,[],4.25,0.00,
+ord_009,9,completed,9.50,2025-02-13T11:00:00Z,2025-02-13T11:08:00Z,Cold Brew,large,iced,oat,no_sugar,less_ice,1,[],5.00,2.00,Extra shot + oat milk
+ord_009,9,completed,9.50,2025-02-13T11:00:00Z,2025-02-13T11:08:00Z,Chocolate Croissant,small,n/a,none,n/a,n/a,0,[],4.00,0.00,
+ord_010,10,in_progress,5.00,2025-02-13T11:15:00Z,,Latte,small,iced,skim,normal,normal,0,"[{""name"":""Caramel Syrup"",""pumps"":1}]",4.00,0.50,Caramel syrup
+ord_011,11,pending,7.75,2025-02-13T11:20:00Z,,Jasmine Tea,large,iced,none,extra_sugar,extra_ice,0,[],3.75,0.00,
+ord_011,11,pending,7.75,2025-02-13T11:20:00Z,,Banana Bread,small,n/a,none,n/a,n/a,0,[],3.00,0.00,
