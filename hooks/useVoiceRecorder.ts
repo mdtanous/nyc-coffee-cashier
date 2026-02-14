@@ -61,7 +61,7 @@ export default function useVoiceRecorder(): UseVoiceRecorderReturn {
         // Send to our STT API route
         try {
           const formData = new FormData();
-          formData.append("audio", audioBlob, "recording.webm");
+          formData.append("file", audioBlob, "recording.webm");
 
           const response = await fetch("/api/speech-to-text", {
             method: "POST",

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData();
-    const audioFile = formData.get("audio") as Blob;
+    const audioFile = formData.get("file") as Blob;
 
     if (!audioFile) {
       return NextResponse.json(
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     // Send to ElevenLabs Speech-to-Text API
     const elevenLabsForm = new FormData();
-    elevenLabsForm.append("audio", audioFile, "recording.webm");
+    elevenLabsForm.append("file", audioFile, "recording.webm");
     elevenLabsForm.append("model_id", "scribe_v1");
 
     const response = await fetch(
