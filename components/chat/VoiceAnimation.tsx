@@ -4,12 +4,14 @@ interface VoiceAnimationProps {
   isRecording: boolean;
   isSpeaking: boolean;
   isProcessing: boolean; // transcribing or loading
+  lastAssistantMessage?: string;
 }
 
 export default function VoiceAnimation({
   isRecording,
   isSpeaking,
   isProcessing,
+  lastAssistantMessage,
 }: VoiceAnimationProps) {
   // Recording state — red pulsing ring with mic icon
   if (isRecording) {
@@ -121,38 +123,14 @@ export default function VoiceAnimation({
     );
   }
 
-  // Idle state — gentle pulse with coffee icon
+  // Idle state — text only, no clickable-looking elements
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6">
-      <div className="relative flex items-center justify-center">
-        {/* Subtle pulse ring */}
-        <div
-          className="absolute h-32 w-32 animate-pulse rounded-full bg-gray-100"
-          style={{ animationDuration: "3s" }}
-        />
-        {/* Inner circle */}
-        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gray-900 shadow-lg">
-          {/* Mic icon */}
-          <svg
-            className="h-8 w-8 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"
-            />
-          </svg>
-        </div>
-      </div>
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8">
+      {lastAssistantMessage && (
+        <p className="text-center text-sm text-gray-500 leading-relaxed max-w-xs italic">
+          &ldquo;{lastAssistantMessage}&rdquo;
+        </p>
+      )}
       <p className="text-sm text-gray-400">Tap the button below to speak</p>
     </div>
   );

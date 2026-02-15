@@ -85,7 +85,11 @@ export default function useTextToSpeech(): UseTextToSpeechReturn {
         });
 
         if (!response.ok) {
-          console.error("TTS request failed");
+          const errBody = await response.json().catch(() => ({}));
+          console.error(
+            `TTS request failed [${response.status}]:`,
+            errBody.detail || errBody.error || "unknown error"
+          );
           return;
         }
 

@@ -23,7 +23,6 @@ export default function ChatWindow() {
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceMode, setIsVoiceMode] = useState(true);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showTranscript, setShowTranscript] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -126,55 +125,40 @@ export default function ChatWindow() {
 
   return (
     <div className="flex h-[calc(100vh-57px)] flex-col bg-white">
-      {/* Voice/Text Toggle + Transcript Toggle */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
-        {/* Left spacer for centering */}
-        <div className="w-24" />
-
-        {/* Center: Voice/Text toggle */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleVoiceToggle}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              !isVoiceMode
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Text
-          </button>
-          <button
-            onClick={handleVoiceToggle}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              isVoiceMode
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            Voice
-          </button>
-        </div>
-
-        {/* Right: Transcript toggle (only in voice mode) */}
-        {isVoiceMode ? (
-          <button
-            onClick={() => setShowTranscript((prev) => !prev)}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors w-24 text-right"
-          >
-            {showTranscript ? "Hide transcript" : "Show transcript"}
-          </button>
-        ) : (
-          <div className="w-24" />
-        )}
+      {/* Voice/Text Toggle */}
+      <div className="flex items-center justify-center gap-2 border-b border-gray-100 py-2">
+        <button
+          onClick={handleVoiceToggle}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            !isVoiceMode
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Text
+        </button>
+        <button
+          onClick={handleVoiceToggle}
+          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            isVoiceMode
+              ? "bg-gray-900 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Voice
+        </button>
       </div>
 
       {/* Main Content Area */}
-      {isVoiceMode && !showTranscript ? (
-        // Voice mode: show animation
+      {isVoiceMode ? (
+        // Voice mode: show animation with last assistant message as context
         <VoiceAnimation
           isRecording={isRecording}
           isSpeaking={isSpeaking}
           isProcessing={isTranscribing || isLoading}
+          lastAssistantMessage={
+            messages.filter((m) => m.role === "assistant").pop()?.content
+          }
         />
       ) : (
         // Text mode or transcript visible: show messages

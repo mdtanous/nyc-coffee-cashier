@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 
+// NYC Coffee is in New York — all analytics should display in Eastern Time
+const NYC_TIMEZONE = "America/New_York";
+
+/** Extract the hour (0-23) in Eastern Time from an ISO timestamp */
+function getEasternHour(isoTimestamp: string): number {
+  const etHour = new Date(isoTimestamp).toLocaleString("en-US", {
+    timeZone: NYC_TIMEZONE,
+    hour: "numeric",
+    hour12: false,
+  });
+  return parseInt(etHour, 10);
+}
+
+/** Get midnight Eastern Time as a UTC ISO string (for "today" filter) */
+function getEasternMidnightUTC(): string {
+  const now = new Date();
+  const parts: Record<string, string> = {};
+  for (const p of new Intl.DateTimeFormat("en-US", {
+    timeZone: NYC_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now)) {
+    parts[p.type] = p.value;
+  }
+  const secsSinceMidnight =
+    parseInt(parts.hour) * 3600 +
+    parseInt(parts.minute) * 60 +
+    parseInt(parts.second);
+  return new Date(now.getTime() - secsSinceMidnight * 1000).toISOString();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = getSupabase();
@@ -11,7 +44,7 @@ export async function GET(req: NextRequest) {
     let dateFilter: string | null = null;
     const now = new Date();
     if (period === "today") {
-      dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      dateFilter = getEasternMidnightUTC();
     } else if (period === "week") {
       const weekAgo = new Date(now);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -53,7 +86,7 @@ export async function GET(req: NextRequest) {
       ordersByHour[h] = 0;
     }
     for (const order of allOrders) {
-      const hour = new Date(order.created_at).getHours();
+      const hour = getEasternHour(order.created_at);
       revenueByHour[hour] += Number(order.total_price);
       ordersByHour[hour] += 1;
     }
