@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMessage from "./ChatMessage";
+import VoiceAnimation from "./VoiceAnimation";
 import useVoiceRecorder from "@/hooks/useVoiceRecorder";
 import useTextToSpeech from "@/hooks/useTextToSpeech";
 
@@ -20,8 +21,9 @@ export default function ChatWindow() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(true);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -124,74 +126,86 @@ export default function ChatWindow() {
 
   return (
     <div className="flex h-[calc(100vh-57px)] flex-col bg-white">
-      {/* Voice/Text Toggle */}
-      <div className="flex items-center justify-center gap-2 border-b border-gray-100 py-2">
-        <button
-          onClick={handleVoiceToggle}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            !isVoiceMode
-              ? "bg-gray-900 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          Text
-        </button>
-        <button
-          onClick={handleVoiceToggle}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            isVoiceMode
-              ? "bg-gray-900 text-white"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          Voice
-        </button>
+      {/* Voice/Text Toggle + Transcript Toggle */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2">
+        {/* Left spacer for centering */}
+        <div className="w-24" />
+
+        {/* Center: Voice/Text toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleVoiceToggle}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              !isVoiceMode
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Text
+          </button>
+          <button
+            onClick={handleVoiceToggle}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              isVoiceMode
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            Voice
+          </button>
+        </div>
+
+        {/* Right: Transcript toggle (only in voice mode) */}
+        {isVoiceMode ? (
+          <button
+            onClick={() => setShowTranscript((prev) => !prev)}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors w-24 text-right"
+          >
+            {showTranscript ? "Hide transcript" : "Show transcript"}
+          </button>
+        ) : (
+          <div className="w-24" />
+        )}
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto max-w-2xl">
-          {messages.map((msg, i) => (
-            <ChatMessage key={i} role={msg.role} content={msg.content} />
-          ))}
-          {isLoading && (
-            <div className="mb-3 flex justify-start">
-              <div className="rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-400">
-                Typing...
+      {/* Main Content Area */}
+      {isVoiceMode && !showTranscript ? (
+        // Voice mode: show animation
+        <VoiceAnimation
+          isRecording={isRecording}
+          isSpeaking={isSpeaking}
+          isProcessing={isTranscribing || isLoading}
+        />
+      ) : (
+        // Text mode or transcript visible: show messages
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="mx-auto max-w-2xl">
+            {messages.map((msg, i) => (
+              <ChatMessage key={i} role={msg.role} content={msg.content} />
+            ))}
+            {isLoading && (
+              <div className="mb-3 flex justify-start">
+                <div className="rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-400">
+                  Typing...
+                </div>
               </div>
-            </div>
-          )}
-          {isTranscribing && (
-            <div className="mb-3 flex justify-end">
-              <div className="rounded-2xl bg-gray-200 px-4 py-2.5 text-sm text-gray-400">
-                Transcribing...
+            )}
+            {isTranscribing && (
+              <div className="mb-3 flex justify-end">
+                <div className="rounded-2xl bg-gray-200 px-4 py-2.5 text-sm text-gray-400">
+                  Transcribing...
+                </div>
               </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Voice Error */}
       {voiceError && (
         <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-center text-xs text-red-600">
           {voiceError}
-        </div>
-      )}
-
-      {/* Speaking Indicator */}
-      {isSpeaking && (
-        <div className="flex items-center justify-center gap-1.5 border-t border-gray-100 py-2">
-          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
-          <div
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"
-            style={{ animationDelay: "0.2s" }}
-          />
-          <div
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"
-            style={{ animationDelay: "0.4s" }}
-          />
-          <span className="ml-1 text-xs text-gray-400">Speaking...</span>
         </div>
       )}
 
