@@ -2,13 +2,32 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMessage from "./ChatMessage";
+import OrderReceipt from "./OrderReceipt";
 import VoiceAnimation from "./VoiceAnimation";
 import useVoiceRecorder from "@/hooks/useVoiceRecorder";
 import useTextToSpeech from "@/hooks/useTextToSpeech";
 
+interface OrderItemData {
+  item_name: string;
+  size: string;
+  temperature: string;
+  milk_type: string;
+  sweetness: string;
+  ice_level: string;
+  extra_shots: number;
+  syrups: { name: string; pumps: number }[];
+  item_price: number;
+  modifiers_price: number;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
+  order?: {
+    order_number: number;
+    total_price: number;
+    items: OrderItemData[];
+  };
 }
 
 export default function ChatWindow() {
@@ -67,10 +86,14 @@ export default function ChatWindow() {
 
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: assistantContent },
+          {
+            role: "assistant",
+            content: assistantContent,
+            ...(data.order && { order: data.order }),
+          },
         ]);
 
-        // In voice mode, speak the response
+        // In voice mode, speak the response (always uses text content, not visual receipt)
         if (isVoiceMode) {
           speak(assistantContent);
         }
@@ -156,17 +179,31 @@ export default function ChatWindow() {
           isRecording={isRecording}
           isSpeaking={isSpeaking}
           isProcessing={isTranscribing || isLoading}
-          lastAssistantMessage={
-            messages.filter((m) => m.role === "assistant").pop()?.content
-          }
+          lastAssistantMessage={(() => {
+            const last = messages.filter((m) => m.role === "assistant").pop();
+            if (!last) return undefined;
+            if (last.order) {
+              return `Order #${last.order.order_number} confirmed - $${last.order.total_price.toFixed(2)}`;
+            }
+            return last.content;
+          })()}
         />
       ) : (
         // Text mode or transcript visible: show messages
         <div className="flex-1 overflow-y-auto px-4 py-4">
           <div className="mx-auto max-w-2xl">
-            {messages.map((msg, i) => (
-              <ChatMessage key={i} role={msg.role} content={msg.content} />
-            ))}
+            {messages.map((msg, i) =>
+              msg.order ? (
+                <OrderReceipt
+                  key={i}
+                  orderNumber={msg.order.order_number}
+                  totalPrice={msg.order.total_price}
+                  items={msg.order.items}
+                />
+              ) : (
+                <ChatMessage key={i} role={msg.role} content={msg.content} />
+              )
+            )}
             {isLoading && (
               <div className="mb-3 flex justify-start">
                 <div className="rounded-2xl bg-gray-100 px-4 py-2.5 text-sm text-gray-400">

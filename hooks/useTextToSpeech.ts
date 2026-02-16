@@ -19,6 +19,9 @@ function sanitizeForSpeech(text: string): string {
   // Strip markdown bold markers
   cleaned = cleaned.replace(/\*\*/g, "");
 
+  // Convert "2x " notation to just "2 " for natural speech (items and syrup pumps)
+  cleaned = cleaned.replace(/(\d+)x /g, "$1 ");
+
   // Convert prices: $X.00 → "X dollars", $X.YZ → "X dollars and YZ cents"
   cleaned = cleaned.replace(/\$(\d+)\.(\d{2})/g, (_match, dollars, cents) => {
     const d = parseInt(dollars, 10);

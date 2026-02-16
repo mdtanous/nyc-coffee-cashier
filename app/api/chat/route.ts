@@ -99,20 +99,47 @@ export async function POST(req: NextRequest) {
         console.error("Error creating order items:", itemsError);
       }
 
-      // Build receipt
-      const receiptLines = itemsWithPrices.map(
-        (item: {
-          item_name: string;
-          size: string;
-          temperature: string;
-          milk_type: string;
-          sweetness: string;
-          ice_level: string;
-          extra_shots: number;
-          syrups: { name: string; pumps: number }[];
-          item_price: number;
-          modifiers_price: number;
-        }) => {
+      // Group identical items for the receipt
+      type ReceiptItem = {
+        item_name: string;
+        size: string;
+        temperature: string;
+        milk_type: string;
+        sweetness: string;
+        ice_level: string;
+        extra_shots: number;
+        syrups: { name: string; pumps: number }[];
+        item_price: number;
+        modifiers_price: number;
+      };
+
+      function itemFingerprint(item: ReceiptItem): string {
+        const syrupKey = item.syrups
+          .map((s) => `${s.name}:${s.pumps}`)
+          .sort()
+          .join("|");
+        return `${item.item_name}|${item.size}|${item.temperature}|${item.milk_type}|${item.sweetness}|${item.ice_level}|${item.extra_shots}|${syrupKey}`;
+      }
+
+      const groupedMap = new Map<
+        string,
+        { item: ReceiptItem; quantity: number; totalPrice: number }
+      >();
+      for (const item of itemsWithPrices as ReceiptItem[]) {
+        const key = itemFingerprint(item);
+        const unitPrice = item.item_price + item.modifiers_price;
+        const existing = groupedMap.get(key);
+        if (existing) {
+          existing.quantity += 1;
+          existing.totalPrice += unitPrice;
+        } else {
+          groupedMap.set(key, { item, quantity: 1, totalPrice: unitPrice });
+        }
+      }
+
+      // Build receipt lines from grouped items
+      const receiptLines = Array.from(groupedMap.values()).map(
+        ({ item, quantity, totalPrice: lineTotal }) => {
           const mods: string[] = [];
           if (item.size) mods.push(item.size === "large" ? "Large" : "Small");
           if (item.temperature && item.temperature !== "n/a")
@@ -131,9 +158,9 @@ export async function POST(req: NextRequest) {
             mods.push(`${syrup.pumps}x ${syrup.name}`);
           }
 
-          const itemTotal = item.item_price + item.modifiers_price;
+          const prefix = quantity > 1 ? `${quantity}x ` : "";
           const modsStr = mods.length > 0 ? ` (${mods.join(", ")})` : "";
-          return `- ${item.item_name}${modsStr}: $${itemTotal.toFixed(2)}`;
+          return `- ${prefix}${item.item_name}${modsStr}: $${lineTotal.toFixed(2)}`;
         }
       );
 
