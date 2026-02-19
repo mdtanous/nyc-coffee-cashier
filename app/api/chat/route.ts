@@ -141,6 +141,36 @@ async function getFollowUpResponse(
   return followUp.choices[0].message;
 }
 
+// Like getFollowUpResponse but allows OpenAI to chain another function call
+// (e.g., lookup_order → modify_order in a single user turn)
+async function getFollowUpWithChaining(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  messages: any[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assistantMessage: any,
+  functionName: string,
+  functionResult: unknown
+) {
+  const followUp = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...messages,
+      assistantMessage,
+      {
+        role: "function",
+        name: functionName,
+        content: JSON.stringify(functionResult),
+      },
+    ],
+    functions: ALL_FUNCTIONS,
+    function_call: "auto", // Allow chaining to another function call
+    temperature: 0.7,
+    max_tokens: 1024,
+  });
+  return followUp.choices[0].message;
+}
+
 // ---------- Handler: submit_order ----------
 
 async function handleSubmitOrder(functionArgs: { items: ItemInput[] }) {
@@ -236,7 +266,7 @@ async function handleLookupOrder(functionArgs: {
     return {
       functionResult: {
         order: {
-          id: order.id,
+          order_id: order.id,
           order_number: order.order_number,
           status: order.status,
           total_price: Number(order.total_price),
@@ -256,7 +286,7 @@ async function handleLookupOrder(functionArgs: {
               modifiers_price: string | number;
               notes: string | null;
             }) => ({
-              id: item.id,
+              order_item_id: item.id,
               item_name: item.item_name,
               size: item.size,
               temperature: item.temperature,
@@ -347,7 +377,7 @@ async function handleLookupOrder(functionArgs: {
     return {
       functionResult: {
         order: {
-          id: orderId,
+          order_id: orderId,
           order_number: orderData.order_number,
           status: orderData.status,
           total_price: Number(orderData.total_price),
@@ -367,7 +397,7 @@ async function handleLookupOrder(functionArgs: {
               modifiers_price: string | number;
               notes: string | null;
             }) => ({
-              id: item.id,
+              order_item_id: item.id,
               item_name: item.item_name,
               size: item.size,
               temperature: item.temperature,
@@ -670,17 +700,53 @@ export async function POST(req: NextRequest) {
     if (functionName === "lookup_order") {
       const { functionResult } = await handleLookupOrder(functionArgs);
 
-      // Feed result back to OpenAI for natural language summary
-      const followUpMessage = await getFollowUpResponse(
+      // Allow OpenAI to chain another function call (e.g., modify_order)
+      const followUpMessage = await getFollowUpWithChaining(
         messages,
         assistantMessage,
         "lookup_order",
         functionResult
       );
 
+      // If no chained function call, return the text response
+      if (!followUpMessage.function_call) {
+        return NextResponse.json({
+          role: "assistant",
+          content: followUpMessage.content,
+        });
+      }
+
+      // Handle chained modify_order call
+      const chainedName = followUpMessage.function_call.name;
+      const chainedArgs = JSON.parse(followUpMessage.function_call.arguments);
+
+      if (chainedName === "modify_order") {
+        const { functionResult: modifyResult, modification } =
+          await handleModifyOrder(chainedArgs);
+
+        // Terminal follow-up (function_call: "none") for natural language confirmation
+        const finalMessage = await getFollowUpResponse(
+          [
+            ...messages,
+            assistantMessage,
+            { role: "function", name: "lookup_order", content: JSON.stringify(functionResult) },
+          ],
+          followUpMessage,
+          "modify_order",
+          modifyResult
+        );
+
+        return NextResponse.json({
+          role: "assistant",
+          content: finalMessage.content,
+          ...(modification && { modification }),
+        });
+      }
+
+      // Fallback: unknown chained function, return the text we have
       return NextResponse.json({
         role: "assistant",
-        content: followUpMessage.content,
+        content: followUpMessage.content || "I'm not sure how to handle that request.",
       });
     }
 
