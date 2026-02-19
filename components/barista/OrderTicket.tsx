@@ -1,10 +1,10 @@
 "use client";
 
-import { Order, OrderItem, TicketStatus } from "@/lib/types";
+import { Order, OrderItem, OrderModification, TicketStatus } from "@/lib/types";
 import StatusBadge from "./StatusBadge";
 
 interface OrderTicketProps {
-  order: Order & { items: OrderItem[] };
+  order: Order & { items: OrderItem[]; modifications: OrderModification[] };
   onUpdateStatus: (orderId: string, status: TicketStatus) => void;
 }
 
@@ -14,6 +14,34 @@ function formatTime(dateStr: string) {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function formatModValue(jsonStr: string): string {
+  try {
+    const val = JSON.parse(jsonStr);
+    if (Array.isArray(val)) {
+      // Syrups array
+      return val.map((s: { name: string; pumps: number }) => `${s.pumps}x ${s.name}`).join(", ") || "none";
+    }
+    if (typeof val === "string") {
+      return val.replace(/_/g, " ");
+    }
+    return String(val);
+  } catch {
+    return jsonStr;
+  }
+}
+
+function formatFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    sweetness: "Sweetness",
+    ice_level: "Ice",
+    milk_type: "Milk",
+    extra_shots: "Extra shots",
+    syrups: "Syrups",
+    notes: "Notes",
+  };
+  return labels[field] || field;
 }
 
 function formatModifications(item: OrderItem): string {
@@ -60,6 +88,11 @@ export default function OrderTicket({ order, onUpdateStatus }: OrderTicketProps)
             Order #{order.order_number}
           </span>
           <StatusBadge status={order.status} />
+          {order.is_modified && (
+            <span className="inline-block rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">
+              Modified
+            </span>
+          )}
         </div>
         <span className="text-xs text-gray-500">
           {formatTime(order.created_at)}
@@ -77,14 +110,53 @@ export default function OrderTicket({ order, onUpdateStatus }: OrderTicketProps)
                   item.temperature === "hot" ? "Hot" : "Iced"
                 }`;
 
+          // Check for modifications on this item
+          const itemChanges = order.modifications.filter(
+            (m) => m.order_item_id === item.id && m.modification_type === "change"
+          );
+          const isAdded = order.modifications.some(
+            (m) => m.order_item_id === item.id && m.modification_type === "add"
+          );
+          const hasChanges = itemChanges.length > 0;
+
           return (
-            <div key={i} className="text-sm">
+            <div
+              key={i}
+              className={`text-sm ${
+                hasChanges
+                  ? "border-l-2 border-orange-400 pl-2"
+                  : isAdded
+                  ? "border-l-2 border-green-400 pl-2"
+                  : ""
+              }`}
+            >
               <div className="font-medium text-gray-900">
                 1x {sizeTemp ? `${sizeTemp} ` : ""}
                 {item.item_name}
+                {isAdded && (
+                  <span className="ml-1.5 text-xs font-medium text-green-600">
+                    Added
+                  </span>
+                )}
               </div>
               {mods && (
                 <div className="ml-4 text-xs text-gray-500">{mods}</div>
+              )}
+              {hasChanges && (
+                <div className="ml-4 mt-0.5 space-y-0.5">
+                  {itemChanges.map((mod, j) => (
+                    <div key={j} className="text-xs text-orange-600">
+                      {formatFieldLabel(mod.field_name || "")}: {" "}
+                      <span className="line-through text-gray-400">
+                        {formatModValue(mod.old_value || "")}
+                      </span>
+                      {" → "}
+                      <span className="font-medium">
+                        {formatModValue(mod.new_value || "")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           );

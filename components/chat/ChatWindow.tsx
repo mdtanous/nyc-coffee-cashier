@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ChatMessage from "./ChatMessage";
 import OrderReceipt from "./OrderReceipt";
+import ModificationReceipt from "./ModificationReceipt";
 import VoiceAnimation from "./VoiceAnimation";
 import useVoiceRecorder from "@/hooks/useVoiceRecorder";
 import useTextToSpeech from "@/hooks/useTextToSpeech";
@@ -20,6 +21,19 @@ interface OrderItemData {
   modifiers_price: number;
 }
 
+interface ModificationChange {
+  field: string;
+  old_value: string;
+  new_value: string;
+}
+
+interface ModificationData {
+  order_number: number;
+  changes: ModificationChange[];
+  added_items: { description: string; price: number }[];
+  new_total: number;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -28,6 +42,7 @@ interface Message {
     total_price: number;
     items: OrderItemData[];
   };
+  modification?: ModificationData;
 }
 
 export default function ChatWindow() {
@@ -90,6 +105,7 @@ export default function ChatWindow() {
             role: "assistant",
             content: assistantContent,
             ...(data.order && { order: data.order }),
+            ...(data.modification && { modification: data.modification }),
           },
         ]);
 
@@ -185,6 +201,9 @@ export default function ChatWindow() {
             if (last.order) {
               return `Order #${last.order.order_number} confirmed - $${last.order.total_price.toFixed(2)}`;
             }
+            if (last.modification) {
+              return `Order #${last.modification.order_number} updated - $${last.modification.new_total.toFixed(2)}`;
+            }
             return last.content;
           })()}
         />
@@ -199,6 +218,14 @@ export default function ChatWindow() {
                   orderNumber={msg.order.order_number}
                   totalPrice={msg.order.total_price}
                   items={msg.order.items}
+                />
+              ) : msg.modification ? (
+                <ModificationReceipt
+                  key={i}
+                  orderNumber={msg.modification.order_number}
+                  changes={msg.modification.changes}
+                  addedItems={msg.modification.added_items}
+                  newTotal={msg.modification.new_total}
                 />
               ) : (
                 <ChatMessage key={i} role={msg.role} content={msg.content} />

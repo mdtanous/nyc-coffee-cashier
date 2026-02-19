@@ -36,3 +36,28 @@ CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 -- Enable Realtime for the orders table (used by barista view)
 ALTER PUBLICATION supabase_realtime ADD TABLE orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE order_items;
+
+-- ============================================================
+-- Order Modifications (run these in Supabase SQL Editor for existing deployments)
+-- ============================================================
+
+-- Add is_modified flag to orders table
+ALTER TABLE orders ADD COLUMN is_modified boolean NOT NULL DEFAULT false;
+
+-- Order modifications table — stores diff history for barista view
+-- order_items are updated in-place (so analytics always reflect final state),
+-- while this table records what changed (so barista can see the diff).
+CREATE TABLE order_modifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_item_id uuid REFERENCES order_items(id) ON DELETE CASCADE,
+  modification_type text NOT NULL DEFAULT 'change' CHECK (modification_type IN ('change', 'add')),
+  field_name text,          -- e.g. 'sweetness', 'syrups' (for 'change' type)
+  old_value text,           -- JSON-stringified old value (for 'change' type)
+  new_value text,           -- JSON-stringified new value (for 'change' type)
+  item_description text,    -- e.g. 'Small Hot Latte' (for 'add' type)
+  modified_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_order_modifications_order_id ON order_modifications(order_id);
+ALTER PUBLICATION supabase_realtime ADD TABLE order_modifications;

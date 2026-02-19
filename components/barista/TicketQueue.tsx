@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { getSupabase } from "@/lib/supabase";
-import { Order, OrderItem, TicketStatus } from "@/lib/types";
+import { Order, OrderItem, OrderModification, TicketStatus } from "@/lib/types";
 import OrderTicket from "./OrderTicket";
 
-type OrderWithItems = Order & { items: OrderItem[] };
+type OrderWithItems = Order & { items: OrderItem[]; modifications: OrderModification[] };
 
 export default function TicketQueue() {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
@@ -27,19 +27,24 @@ export default function TicketQueue() {
         return;
       }
 
+      const orderIds = ordersData.map((o) => o.id);
+
       const { data: itemsData, error: itemsError } = await supabase
         .from("order_items")
         .select("*")
-        .in(
-          "order_id",
-          ordersData.map((o) => o.id)
-        );
+        .in("order_id", orderIds);
 
       if (itemsError) throw itemsError;
+
+      const { data: modsData } = await supabase
+        .from("order_modifications")
+        .select("*")
+        .in("order_id", orderIds);
 
       const ordersWithItems: OrderWithItems[] = ordersData.map((order) => ({
         ...order,
         items: (itemsData || []).filter((item) => item.order_id === order.id),
+        modifications: (modsData || []).filter((mod) => mod.order_id === order.id),
       }));
 
       setOrders(ordersWithItems);
@@ -68,7 +73,14 @@ export default function TicketQueue() {
         )
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "order_items" },
+          { event: "*", schema: "public", table: "order_items" },
+          () => {
+            fetchOrders();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "order_modifications" },
           () => {
             fetchOrders();
           }

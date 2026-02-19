@@ -86,6 +86,39 @@ export const SYSTEM_PROMPT = `You are a friendly, efficient AI cashier at NYC Co
 - Always calculate prices accurately. The total should match the sum of all items and add-ons.
 - If a customer orders multiple items in one message, process all of them.
 - If a customer changes their mind, update the order accordingly.
+
+## Order Modifications
+
+Customers may come back to modify an existing order. When they mention modifying, changing, or updating a previous order:
+
+1. Ask for their order number. If they describe an item instead (e.g., "my latte"), use lookup_order with the item name to find it.
+2. Call lookup_order to retrieve the order. Only pending and in-progress orders can be modified.
+3. If the lookup returns multiple matching orders, ask the customer for their specific order number.
+4. Show the customer what's currently in their order before making changes.
+5. Review what the customer wants to change.
+
+### What CAN be changed (low-effort, barista can adjust without remaking):
+- Sweetness level (e.g., switch to extra sugar)
+- Ice level (e.g., less ice)
+- Adding extra espresso/matcha shots
+- Adding or changing syrup pumps
+- Adding notes/special instructions
+- Milk type — ONLY if the order is still pending (not yet being made). If in-progress, the milk is already steamed.
+
+### What CAN be added:
+- New items can be added to any pending or in-progress order (e.g., "add a croissant to my order").
+
+### What CANNOT be changed (requires remaking the drink):
+- Drink type (e.g., Latte to Americano) — suggest placing a new order
+- Temperature (e.g., hot to iced) — the drink is fundamentally different
+- Size (e.g., small to large) — different cup and proportions
+- Removing espresso shots from an in-progress order (already pulled)
+
+### What CANNOT be done:
+- Items cannot be removed from an order once placed (causes inventory loss — ingredients already pulled/prepped). If a customer asks to remove an item, politely explain this and suggest they could place a new order for what they want instead.
+
+6. After confirming the changes with the customer, call modify_order with only the changed fields and/or new items.
+7. Tell the customer the updated total if the price changed.
 `;
 
 export const ORDER_FUNCTION = {
@@ -173,5 +206,194 @@ export const ORDER_FUNCTION = {
       },
     },
     required: ["items"],
+  },
+};
+
+export const LOOKUP_ORDER_FUNCTION = {
+  name: "lookup_order",
+  description:
+    "Look up an existing order by order number or by item name. Returns the order details including all items and their current state. Only returns pending or in_progress orders.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      order_number: {
+        type: "number" as const,
+        description:
+          "The order number (e.g., 5). Provide this if the customer knows their order number.",
+      },
+      item_name: {
+        type: "string" as const,
+        description:
+          'The name of an item to search for (e.g., "Latte"). Used when the customer describes their order by item instead of number. Returns the most recent matching non-completed order.',
+      },
+    },
+  },
+};
+
+export const MODIFY_ORDER_FUNCTION = {
+  name: "modify_order",
+  description:
+    "Modify specific items in an existing order and/or add new items. Only send the fields that are changing. Call this ONLY after the customer confirms the modification.",
+  parameters: {
+    type: "object" as const,
+    properties: {
+      order_id: {
+        type: "string" as const,
+        description:
+          "The UUID of the order to modify (from lookup_order result).",
+      },
+      item_modifications: {
+        type: "array" as const,
+        description:
+          "Array of modifications to apply to specific existing items. Only include fields that are changing.",
+        items: {
+          type: "object" as const,
+          properties: {
+            order_item_id: {
+              type: "string" as const,
+              description:
+                "The UUID of the specific order item to modify (from lookup_order result).",
+            },
+            sweetness: {
+              type: "string" as const,
+              enum: [
+                "no_sugar",
+                "less_sugar",
+                "normal",
+                "extra_sugar",
+              ],
+              description: "New sweetness level (only if changing).",
+            },
+            ice_level: {
+              type: "string" as const,
+              enum: ["no_ice", "less_ice", "normal", "extra_ice"],
+              description: "New ice level (only if changing).",
+            },
+            milk_type: {
+              type: "string" as const,
+              enum: ["whole", "skim", "oat", "almond", "none"],
+              description:
+                "New milk type (only if changing, only allowed on pending orders).",
+            },
+            extra_shots: {
+              type: "number" as const,
+              description:
+                "New total number of extra shots (only if changing).",
+            },
+            syrups: {
+              type: "array" as const,
+              description:
+                "New complete syrups array (only if changing). Replaces the existing syrups.",
+              items: {
+                type: "object" as const,
+                properties: {
+                  name: {
+                    type: "string" as const,
+                    enum: ["Caramel Syrup", "Hazelnut Syrup"],
+                  },
+                  pumps: {
+                    type: "number" as const,
+                    description: "Number of pumps",
+                  },
+                },
+                required: ["name", "pumps"],
+              },
+            },
+            notes: {
+              type: "string" as const,
+              description: "Updated notes/special instructions.",
+            },
+          },
+          required: ["order_item_id"],
+        },
+      },
+      add_items: {
+        type: "array" as const,
+        description: "New items to add to the existing order.",
+        items: {
+          type: "object" as const,
+          properties: {
+            item_name: {
+              type: "string" as const,
+              description:
+                'The name of the menu item exactly as it appears on the menu (e.g., "Latte", "Plain Croissant")',
+            },
+            size: {
+              type: "string" as const,
+              enum: ["small", "large"],
+              description: "Drink size. Use small for pastries.",
+            },
+            temperature: {
+              type: "string" as const,
+              enum: ["hot", "iced", "n/a"],
+              description:
+                'Hot or iced for drinks. Use "n/a" for pastries.',
+            },
+            milk_type: {
+              type: "string" as const,
+              enum: ["whole", "skim", "oat", "almond", "none"],
+              description:
+                'Milk type. Use "none" for drinks without milk and pastries.',
+            },
+            sweetness: {
+              type: "string" as const,
+              enum: [
+                "no_sugar",
+                "less_sugar",
+                "normal",
+                "extra_sugar",
+                "n/a",
+              ],
+              description: 'Sweetness level. Use "n/a" for pastries.',
+            },
+            ice_level: {
+              type: "string" as const,
+              enum: [
+                "no_ice",
+                "less_ice",
+                "normal",
+                "extra_ice",
+                "n/a",
+              ],
+              description:
+                'Ice level. Use "n/a" for hot drinks and pastries.',
+            },
+            extra_shots: {
+              type: "number" as const,
+              description: "Number of extra shots. 0 if none.",
+            },
+            syrups: {
+              type: "array" as const,
+              description: "Array of syrup add-ons",
+              items: {
+                type: "object" as const,
+                properties: {
+                  name: {
+                    type: "string" as const,
+                    enum: ["Caramel Syrup", "Hazelnut Syrup"],
+                  },
+                  pumps: {
+                    type: "number" as const,
+                    description: "Number of pumps",
+                  },
+                },
+                required: ["name", "pumps"],
+              },
+            },
+          },
+          required: [
+            "item_name",
+            "size",
+            "temperature",
+            "milk_type",
+            "sweetness",
+            "ice_level",
+            "extra_shots",
+            "syrups",
+          ],
+        },
+      },
+    },
+    required: ["order_id"],
   },
 };
